@@ -14,6 +14,8 @@ from utils import settings
 from utils.console import print_step, print_substep
 from utils.voice import sanitize_text
 
+
+
 DEFAULT_MAX_LENGTH: int = (
     50  # Video length variable, edit this on your own risk. It should work, but it's not supported
 )
@@ -52,7 +54,10 @@ class TTSEngine:
     def add_periods(
         self,
     ):  # adds periods to the end of paragraphs (where people often forget to put them) so tts doesn't blend sentences
+        i = 1
+
         for comment in self.reddit_object["comments"]:
+            
             # remove links
             regex_urls = r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*"
             comment["comment_body"] = re.sub(regex_urls, " ", comment["comment_body"])
@@ -67,6 +72,8 @@ class TTSEngine:
             comment["comment_body"] = re.sub(r'\."\.', '".', comment["comment_body"])
 
     def run(self) -> Tuple[int, int]:
+        from utils.imagenarator import comment_image_maker
+        
         Path(self.path).mkdir(parents=True, exist_ok=True)
         print_step("Saving Text to MP3 files...")
 
@@ -75,7 +82,7 @@ class TTSEngine:
         # processed_text = ##self.reddit_object["thread_post"] != ""
         idx = 0
 
-        if settings.config["settings"]["storymode"]:
+        if settings.config["settings"]["storymode"] and not settings.config["settings"]["mememode"]:
             if settings.config["settings"]["storymodemethod"] == 0:
                 if len(self.reddit_object["thread_post"]) > self.tts_module.max_chars:
                     self.split_post(self.reddit_object["thread_post"], "postaudio")
@@ -86,7 +93,12 @@ class TTSEngine:
                     self.call_tts(f"postaudio-{idx}", process_text(text))
 
         else:
+            comments = []
+            os.makedirs("assets/temp/" + self.redditid + "/png", exist_ok=True)
             for idx, comment in track(enumerate(self.reddit_object["comments"]), "Saving..."):
+                # TODO: Maybe move this somewhere better?
+                comments.append(comment["comment_body"])
+
                 # ! Stop creating mp3 files if the length is greater than max length.
                 if self.length > self.max_length and idx > 1:
                     self.length -= self.last_clip_length
@@ -95,9 +107,11 @@ class TTSEngine:
                 if (
                     len(comment["comment_body"]) > self.tts_module.max_chars
                 ):  # Split the comment if it is too long
-                    self.split_post(comment["comment_body"], idx)  # Split the comment
+                    self.split_post(comment["comment_body"], idx)  # Split the comment     
                 else:  # If the comment is not too long, just call the tts engine
                     self.call_tts(f"{idx}", process_text(comment["comment_body"]))
+
+            comment_image_maker((0, 0, 0, 0), self.reddit_object, comments, (255, 255, 255), transparent=True)
 
         print_substep("Saved Text to MP3 files successfully.", style="bold green")
         return self.length, idx
@@ -147,7 +161,7 @@ class TTSEngine:
         self.tts_module.run(
             text,
             filepath=f"{self.path}/{filename}.mp3",
-            random_voice=settings.config["settings"]["tts"]["random_voice"],
+            random_voice=settings.config["settings"]["tts"]["random_voice"], 
         )
         # try:
         #     self.length += MP3(f"{self.path}/{filename}.mp3").info.length

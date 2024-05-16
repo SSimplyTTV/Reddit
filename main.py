@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import math
 import sys
+import os
 from os import name
 from pathlib import Path
 from subprocess import Popen
@@ -25,6 +26,7 @@ from video_creation.background import (
 from video_creation.final_video import make_final_video
 from video_creation.screenshot_downloader import get_screenshots_of_reddit_posts
 from video_creation.voices import save_text_to_mp3
+from video_creation.memes import make_meme_video
 
 __VERSION__ = "3.2.1"
 
@@ -69,7 +71,8 @@ def run_many(times) -> None:
         )  # correct 1st 2nd 3rd 4th 5th....
         main()
         Popen("cls" if name == "nt" else "clear", shell=True).wait()
-
+    if settings.config["settings"]["mememode"]:
+        make_meme_video()
 
 def shutdown() -> NoReturn:
     if "redditid" in globals():
@@ -92,16 +95,6 @@ if __name__ == "__main__":
         f"{directory}/utils/.config.template.toml", f"{directory}/config.toml"
     )
     config is False and sys.exit()
-
-    if (
-        not settings.config["settings"]["tts"]["tiktok_sessionid"]
-        or settings.config["settings"]["tts"]["tiktok_sessionid"] == ""
-    ) and config["settings"]["tts"]["voice_choice"] == "tiktok":
-        print_substep(
-            "TikTok voice requires a sessionid! Check our documentation on how to obtain one.",
-            "bold red",
-        )
-        sys.exit()
     try:
         if config["reddit"]["thread"]["post_id"]:
             for index, post_id in enumerate(config["reddit"]["thread"]["post_id"].split("+")):
@@ -121,8 +114,7 @@ if __name__ == "__main__":
         print_markdown("## Invalid credentials")
         print_markdown("Please check your credentials in the config.toml file")
         shutdown()
-    except Exception as err:
-        config["settings"]["tts"]["tiktok_sessionid"] = "REDACTED"
+    except Exception as err:        
         config["settings"]["tts"]["elevenlabs_api_key"] = "REDACTED"
         print_step(
             f"Sorry, something went wrong with this version! Try again, and feel free to report this issue at GitHub or the Discord community.\n"
